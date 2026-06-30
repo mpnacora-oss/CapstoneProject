@@ -67,7 +67,8 @@ const receivePurchaseOrder = async (poId, userId, ipAddress) => {
 
     // 3. Create Notification for the receiving user
     await Notification.create({
-      user_id: userId,
+      userId,
+      branchId: po.branchId,
       title: 'Purchase Order Received',
       message: `Purchase Order ${po.poNumber} has been received and added to inventory.`,
       type: 'purchase_order',

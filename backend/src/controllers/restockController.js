@@ -149,15 +149,40 @@ const approveRequest = async (req, res) => {
     request.processed_at = new Date();
     await request.save();
 
-    // Notify Manager
-    await Notification.create({
-      userId: request.manager_id,
+    // Notify ALL users in the target branch (branch admins + employees)
+    const { Op } = require('sequelize');
+    const branchUsers = await User.findAll({
+      where: {
+        branch_id: request.branch_id,
+        role: { [Op.in]: ['branch_admin', 'employee'] }
+      }
+    });
+
+    const approvalNotifications = branchUsers.map(u => ({
+      userId: u.id,
       branchId: request.branch_id,
       title: 'Restock Request Approved',
-      message: `Your restock request for ${request.Product.name} has been approved.`,
+      message: `Restock request for ${request.Product.name} (${request.quantity} units) has been approved and added to inventory.`,
       type: 'success',
       link: '/inventory'
-    });
+    }));
+
+    // Always include the original requester (manager_id) if not already in the list
+    const alreadyIncluded = branchUsers.some(u => u.id === request.manager_id);
+    if (!alreadyIncluded) {
+      approvalNotifications.push({
+        userId: request.manager_id,
+        branchId: request.branch_id,
+        title: 'Restock Request Approved',
+        message: `Your restock request for ${request.Product.name} has been approved.`,
+        type: 'success',
+        link: '/inventory'
+      });
+    }
+
+    if (approvalNotifications.length > 0) {
+      await Notification.bulkCreate(approvalNotifications);
+    }
 
     // Remove the original request notification
     await Notification.destroy({ where: { link: `/admin?tab=restock&id=${request.id}` } });

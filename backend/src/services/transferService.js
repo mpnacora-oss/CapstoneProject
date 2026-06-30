@@ -92,7 +92,8 @@ const completeStockTransfer = async (transferId, userId, ipAddress) => {
     });
 
     const notifications = branchAdmins.map(admin => ({
-      user_id: admin.id,
+      userId: admin.id,
+      branchId: admin.branch_id === transfer.fromBranchId ? transfer.fromBranchId : transfer.toBranchId,
       title: 'Stock Transfer Completed',
       message: `Stock Transfer #${transfer.id} has been processed and completed successfully.`,
       type: 'stock_transfer',

@@ -406,14 +406,39 @@ const completeRequest = async (req, res) => {
 
     await transaction.commit();
 
-    // Notify Branch Admin
-    await Notification.create({
-      userId: request.requested_by,
+    // Notify ALL users in the target branch (branch admins + employees)
+    const branchUsers = await User.findAll({
+      where: {
+        branch_id: request.branch_id,
+        role: { [Op.in]: ['branch_admin', 'employee'] }
+      }
+    });
+
+    const completionNotifications = branchUsers.map(u => ({
+      userId: u.id,
+      branchId: request.branch_id,
       title: 'Request Completed',
-      message: `Your request ${request.request_number} for ${product.name} has been completed and delivered to your branch.`,
+      message: `Product request ${request.request_number} for ${product.name} (${approvedQty} units) has been completed and delivered to your branch.`,
       type: 'success',
       link: '/inventory'
-    });
+    }));
+
+    // Always include the original requester if not already in the list
+    const alreadyIncluded = branchUsers.some(u => u.id === request.requested_by);
+    if (!alreadyIncluded) {
+      completionNotifications.push({
+        userId: request.requested_by,
+        branchId: request.branch_id,
+        title: 'Request Completed',
+        message: `Your request ${request.request_number} for ${product.name} has been completed and delivered to your branch.`,
+        type: 'success',
+        link: '/inventory'
+      });
+    }
+
+    if (completionNotifications.length > 0) {
+      await Notification.bulkCreate(completionNotifications);
+    }
 
     res.json({ message: 'Transfer completed and inventory updated.', request });
   } catch (error) {

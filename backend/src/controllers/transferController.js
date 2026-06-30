@@ -56,10 +56,27 @@ const getTransferById = async (req, res) => {
 const createTransfer = async (req, res) => {
   try {
     const { fromBranchId, toBranchId, items, notes } = req.body;
-    
+    const { Inventory } = require('../models');
+
     // Validate sector authorization
     if (req.user.role !== 'super_admin' && parseInt(fromBranchId) !== req.user.branch_id) {
       return res.status(403).json({ message: 'Forbidden: You cannot transfer stock out of another branch.' });
+    }
+
+    // --- Source Stock Validation ---
+    for (const item of items) {
+      const sourceInventory = await Inventory.findOne({
+        where: { product_id: item.productId, branch_id: fromBranchId }
+      });
+
+      if (!sourceInventory || sourceInventory.quantity < item.quantity) {
+        const available = sourceInventory ? sourceInventory.quantity : 0;
+        const product = await Product.findByPk(item.productId, { attributes: ['name'] });
+        const productName = product ? product.name : `Product #${item.productId}`;
+        return res.status(400).json({
+          message: `Insufficient stock for "${productName}" at the source branch. Available: ${available}, Requested: ${item.quantity}.`
+        });
+      }
     }
 
     const transfer = await StockTransfer.create({
