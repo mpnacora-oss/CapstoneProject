@@ -72,6 +72,17 @@ export default function RestockRequestModal({ inventoryItem, product: legacyProd
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Guard: quantity cannot exceed the source available stock
+    const maxQty = product?.available_quantity;
+    if (maxQty !== undefined && parseInt(quantity) > maxQty) {
+      showError(`Quantity cannot exceed available source stock (${maxQty} units).`);
+      return;
+    }
+    if (maxQty === 0) {
+      showError('Source stock is currently empty. Cannot request stock.');
+      return;
+    }
+
     setLoading(true);
     const token = localStorage.getItem('token');
 
@@ -180,13 +191,38 @@ export default function RestockRequestModal({ inventoryItem, product: legacyProd
                 <input
                   type="number"
                   min="1"
+                  max={product?.available_quantity > 0 ? product.available_quantity : undefined}
                   required
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full bg-brand-surface/20 border border-brand-border/30 rounded-xl pl-12 pr-4 py-4 text-lg font-rajdhani font-black text-main focus:outline-none focus:border-brand-neonblue/50 transition-all placeholder:text-brand-muted/50"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1;
+                    const maxQty = product?.available_quantity > 0 ? product.available_quantity : Infinity;
+                    setQuantity(Math.min(val, maxQty));
+                  }}
+                  className={`w-full bg-brand-surface/20 border rounded-xl pl-12 pr-4 py-4 text-lg font-rajdhani font-black text-main focus:outline-none transition-all placeholder:text-brand-muted/50 ${
+                    product?.available_quantity > 0 && parseInt(quantity) > product.available_quantity
+                      ? 'border-brand-crimson/60 focus:border-brand-crimson'
+                      : 'border-brand-border/30 focus:border-brand-neonblue/50'
+                  }`}
                   placeholder="0"
                 />
               </div>
+              {/* Available stock limit hint */}
+              {product?.available_quantity !== undefined && (
+                <div className={`mt-1.5 ml-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${
+                  product.available_quantity === 0
+                    ? 'text-brand-crimson'
+                    : parseInt(quantity) > product.available_quantity
+                    ? 'text-brand-crimson'
+                    : 'text-brand-muted'
+                }`}>
+                  <span>Max:</span>
+                  <span className="font-rajdhani">{product.available_quantity.toLocaleString()} available</span>
+                  {product.available_quantity === 0 && (
+                    <span className="text-brand-crimson">— Out of stock at source</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -255,7 +291,11 @@ export default function RestockRequestModal({ inventoryItem, product: legacyProd
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={
+                loading ||
+                product?.available_quantity === 0 ||
+                (product?.available_quantity !== undefined && parseInt(quantity) > product.available_quantity)
+              }
               className="flex-[1.5] px-8 py-4 bg-brand-neonblue text-white dark:text-brand-navy rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] font-rajdhani hover:opacity-90 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(10,65,116,0.2)]"
             >
               {loading ? 'PROCESSING...' : 'REQUEST STOCK'}
