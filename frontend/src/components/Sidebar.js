@@ -66,7 +66,7 @@ const Sidebar = () => {
         { title: "Import Sales", path: "/sell/import" }
       ] },
       { title: "Buy Stock",    icon: Download,        path: "#purchases", group: "SALES", subItems: [{ title: "Stock Purchases", path: "/purchases" }, { title: "Order Stock", path: "/purchases/restock" }] },
-      { title: "Reports",      icon: ClipboardList,   path: "#reports",   group: "SYSTEM", subItems: [{ title: "Profit / Loss", path: "/reports/profit-loss" }, { title: "Stock Activity", path: "/reports/purchase-sale" }, { title: "Brand Reports", path: "/reports/brands" }] },
+      { title: "Reports",      icon: ClipboardList,   path: "#reports",   group: "SYSTEM", subItems: [{ title: "Profit / Loss", path: "/reports/profit-loss" }, { title: "Stock Activity", path: "/reports/purchase-sale" }] },
       { title: "Analytics",    icon: Activity,        path: "#analytics", group: "SYSTEM", subItems: [
         { title: "Forecasting", path: "/forecasting" },
         { title: "Prescriptive Analytics", path: "/prescriptive-analytics" }
