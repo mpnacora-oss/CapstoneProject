@@ -24,11 +24,19 @@ const StockTransfer = sequelize.define('StockTransfer', {
     }
   },
   status: {
-    type: DataTypes.ENUM('Pending', 'In-Transit', 'Completed'),
+    type: DataTypes.ENUM('Pending', 'In-Transit', 'Completed', 'Rejected'),
     defaultValue: 'Pending'
   },
   notes: {
     type: DataTypes.TEXT
+  },
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  processed_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'stocktransfers'

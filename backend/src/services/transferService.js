@@ -1,5 +1,5 @@
 const sequelize = require('../db');
-const { StockTransfer, StockTransferItem, Inventory, Product, StockMovement, Notification, AuditLog, User } = require('../models');
+const { StockTransfer, StockTransferItem, Inventory, Product, StockMovement, AuditLog, User } = require('../models');
 
 /**
  * Approves and completes a StockTransfer, deducting stock from the source
@@ -42,16 +42,16 @@ const completeStockTransfer = async (transferId, userId, ipAddress) => {
       sourceInv.quantity -= item.quantity;
       await sourceInv.save({ transaction });
 
-      // Log StockMovement for source deduction (using ADJUSTMENT/SALE category since type is enum)
+      // Log StockMovement for source deduction
       await StockMovement.create({
         product_id: product.id,
-        type: 'SALE',
+        type: 'TRANSFER',
         quantity: -item.quantity,
         previous_stock: prevSourceStock,
         new_stock: sourceInv.quantity,
         user_id: userId,
         branch_id: transfer.fromBranchId,
-        note: `Stock Transfer Out (ID: ${transfer.id})`
+        note: `Stock Transfer Out → Branch #${transfer.toBranchId} (Transfer #${transfer.id})`
       }, { transaction });
 
       // 2. Destination Branch stock addition
@@ -76,33 +76,18 @@ const completeStockTransfer = async (transferId, userId, ipAddress) => {
       // Log StockMovement for destination addition
       await StockMovement.create({
         product_id: product.id,
-        type: 'RESTOCK',
+        type: 'TRANSFER',
         quantity: item.quantity,
         previous_stock: prevDestStock,
         new_stock: destInv.quantity,
         user_id: userId,
         branch_id: transfer.toBranchId,
-        note: `Stock Transfer In (ID: ${transfer.id})`
+        note: `Stock Transfer In ← Branch #${transfer.fromBranchId} (Transfer #${transfer.id})`
       }, { transaction });
     }
 
-    // 3. Notify Branch Admins of completed transfer
-    const branchAdmins = await User.findAll({
-      where: { role: 'branch_admin', branch_id: [transfer.fromBranchId, transfer.toBranchId] }
-    });
-
-    const notifications = branchAdmins.map(admin => ({
-      userId: admin.id,
-      branchId: admin.branch_id === transfer.fromBranchId ? transfer.fromBranchId : transfer.toBranchId,
-      title: 'Stock Transfer Completed',
-      message: `Stock Transfer #${transfer.id} has been processed and completed successfully.`,
-      type: 'stock_transfer',
-      link: '/inventory'
-    }));
-
-    if (notifications.length > 0) {
-      await Notification.bulkCreate(notifications, { transaction });
-    }
+    // Notifications are sent by the calling controller (approveTransfer) after this service returns.
+    // This keeps the service focused on data mutations only (inventory + audit log).
 
     // 4. Log Audit Log
     await AuditLog.create({

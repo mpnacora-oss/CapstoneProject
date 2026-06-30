@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { body, param } = require('express-validator');
 const validate = require('../middleware/validate');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const {
   getAllTransfers,
   getTransferById,
   createTransfer,
-  completeTransferRoute
+  approveTransfer,
+  rejectTransfer
 } = require('../controllers/transferController');
 
 router.use(authenticateToken);
@@ -29,9 +30,19 @@ router.post('/', [
   validate
 ], createTransfer);
 
-router.post('/:id/complete', [
+// SOURCE branch approves → stock moves, destination branch notified
+router.post('/:id/approve', [
+  authorizeRoles('super_admin', 'branch_admin', 'employee'),
   param('id').isInt().withMessage('Invalid transfer ID.'),
   validate
-], completeTransferRoute);
+], approveTransfer);
+
+// SOURCE branch rejects → destination branch notified with reason
+router.post('/:id/reject', [
+  authorizeRoles('super_admin', 'branch_admin', 'employee'),
+  param('id').isInt().withMessage('Invalid transfer ID.'),
+  body('reason').notEmpty().trim().withMessage('Rejection reason is required.'),
+  validate
+], rejectTransfer);
 
 module.exports = router;
